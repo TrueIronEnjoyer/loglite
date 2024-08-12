@@ -57,7 +57,7 @@ var (
 
 func (l *loger) Start(fileName string) {
 	var err error
-	file, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
+	file, err = os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		println("The Loger couldn't open/create the .log file, err: ", err.Error())
 		return
@@ -106,7 +106,7 @@ func Fatal(msg string, args ...any) {
 	}
 
 	lg := newLog("fatal", msg, args...)
-	save(lg)
+	panic(save(lg))
 }
 
 func newLog(lvl, msg string, args ...any) log {
@@ -121,10 +121,14 @@ func newLog(lvl, msg string, args ...any) log {
 	return lg
 }
 
-func save(lg log) {
-	_, err := file.WriteString(fmt.Sprintln(lg.id, lg.lvl, lg.msg, lg.ptime.String()))
+func save(lg log) string {
+	lgText := fmt.Sprintln("#", lg.id, "#", lg.lvl, "#", lg.msg, "#", lg.ptime.Format("2006-01-02 15:04:05"))
+
+	_, err := file.WriteString(lgText)
 	if err != nil {
 		println("The Loger couldn't insert the data of the log to the log's file, err: ", err.Error())
-		return
+		return lgText
 	}
+
+	return lgText
 }
