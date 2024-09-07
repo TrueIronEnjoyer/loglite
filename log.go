@@ -1,24 +1,3 @@
-/*
-Package loglite provides a simple logging solution with configurable log levels.
-It supports logging messages at various levels (Debug, Info, Warning, Error, Fatal)
-and writes logs to a specified file.
-
-Usage:
-
-import "path/to/your/loglite"
-
-	func main() {
-	    loglite.Loger.Mods = loglite.Mods{
-	        Debug:   true,
-	        Info:    true,
-	        Warning: true,
-	        Error:   true,
-	        Fatal:   true,
-	    }
-	    loglite.Start("path/to/your/logfile.log")
-	    loglite.Debug("This is a debug message")
-	}
-*/
 package loglite
 
 import (
@@ -27,21 +6,25 @@ import (
 	"time"
 )
 
+// loger struct: Handles the logger's state, including log level, file path, file handler, and internal counters.
 type loger struct {
-	Mods     Mods
-	Queue    chan log
-	FileName string
-	Works    bool
+	Lvl       int
+	FilePath  string
+	file      *os.File
+	lastId    int
+	waitCount int
+	listen    bool
 }
 
-type Mods struct {
-	Debug   bool
-	Info    bool
-	Warning bool
-	Error   bool
-	Fatal   bool
-}
+// Log Levels: Constants Debug, Info, Warning, and Error control log severity.
+const (
+	Debug   = -4
+	Info    = 0
+	Warning = 4
+	Error   = 8
+)
 
+// log struct: Represents a log entry with a unique ID, log level, message, and timestamp.
 type log struct {
 	id    int
 	lvl   string
@@ -49,86 +32,114 @@ type log struct {
 	ptime time.Time
 }
 
-var (
-	Loger  loger
-	file   *os.File
-	lastId int
-)
+// NewLogger(lvl int, filePath string) *loger: Initializes a new logger, sets the log level, and opens/creates a log file.
+func NewLogger(lvl int, filePath string) *loger {
+	l := &loger{
+		Lvl:      lvl,
+		FilePath: filePath,
+		listen:   true,
+	}
 
-func (l *loger) Start(fileName string) {
 	var err error
-	file, err = os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0644)
+	l.file, err = os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		println("The Loger couldn't open/create the .log file, err: ", err.Error())
-		return
-	}
-}
-
-func Debug(msg string, args ...any) {
-	if !Loger.Mods.Debug {
-		return
+		panic("The Loger couldn't open/create the .log file, err: " + err.Error())
 	}
 
-	lg := newLog("debug", msg, args...)
-	save(lg)
+	return l
 }
 
-func Info(msg string, args ...any) {
-	if !Loger.Mods.Info {
+// Debug(msg string, args ...any): Logs debug messages.
+func (l *loger) Debug(msg string, args ...any) {
+	if l.Lvl > Debug || !l.listen {
 		return
 	}
 
-	lg := newLog("info", msg, args...)
-	save(lg)
+	l.waitCount++
+
+	lg := l.newLog("debug", msg, args...)
+	go l.save(lg)
 }
 
-func Warning(msg string, args ...any) {
-	if !Loger.Mods.Warning {
+// Info(msg string, args ...any): Logs informational messages.
+func (l *loger) Info(msg string, args ...any) {
+	if l.Lvl > Info || !l.listen {
 		return
 	}
 
-	lg := newLog("warning", msg, args...)
-	save(lg)
+	l.waitCount++
+
+	lg := l.newLog("info", msg, args...)
+	go l.save(lg)
 }
 
-func Error(msg string, args ...any) {
-	if !Loger.Mods.Error {
+// Warning(msg string, args ...any): Logs warning messages.
+func (l *loger) Warning(msg string, args ...any) {
+	if l.Lvl > Warning || !l.listen {
 		return
 	}
 
-	lg := newLog("error", msg, args...)
-	save(lg)
+	l.waitCount++
+
+	lg := l.newLog("warning", msg, args...)
+	go l.save(lg)
 }
 
-func Fatal(msg string, args ...any) {
-	if !Loger.Mods.Fatal {
+// Error(msg string, args ...any): Logs error messages.
+func (l *loger) Error(msg string, args ...any) {
+	if l.Lvl > Error || !l.listen {
 		return
 	}
 
-	lg := newLog("fatal", msg, args...)
-	panic(save(lg))
+	l.waitCount++
+
+	lg := l.newLog("error", msg, args...)
+	go l.save(lg)
 }
 
-func newLog(lvl, msg string, args ...any) log {
+// Fatal(msg string, args ...any): Logs a fatal error and stops the logger.
+func (l *loger) Fatal(msg string, args ...any) {
+	lg := l.newLog("fatal", msg, args...)
+
+	l.listen = false
+
+	for {
+		if l.waitCount == 0 {
+			break
+		}
+		time.Sleep(1000 * time.Millisecond)
+	}
+
+	panic(l.save(lg))
+
+}
+
+// newLog(lvl, msg string, args ...any) log: Creates a new log entry with a unique ID, log level, and formatted message.
+func (l *loger) newLog(lvl, msg string, args ...any) log {
 	lg := log{
-		id:    lastId,
+		id:    l.lastId,
 		lvl:   lvl,
 		msg:   fmt.Sprintf(msg, args...),
 		ptime: time.Now(),
 	}
-	lastId++
+
+	l.lastId++
 
 	return lg
 }
 
-func save(lg log) string {
-	lgText := fmt.Sprintln("#", lg.id, "#", lg.lvl, "#", lg.msg, "#", lg.ptime.Format("2006-01-02 15:04:05"))
+// save(lg log) string: Writes the log entry to the file.
+func (l *loger) save(lg log) string {
 
-	_, err := file.WriteString(lgText)
+	lgText := fmt.Sprintln("{", lg.id, ",\n", lg.lvl, ",\n", lg.msg, "\n", lg.ptime.Format("2001-01-01 01:01:01.001"), "}")
+
+	_, err := l.file.WriteString(lgText)
+
 	if err != nil {
 		println("The Loger couldn't insert the data of the log to the log's file, err: ", err.Error())
-		return lgText
 	}
+
+	l.waitCount--
 
 	return lgText
 }
