@@ -1,11 +1,11 @@
 # loglite
 
-`loglite` is a Go logging package that provides multiple log levels (Debug, Info, Warning, Error, Fatal) and logs messages to a file with timestamps and a unique identifier for each entry.
+`loglite` is a Go logging package that provides multiple log levels (Info, Warning, Error, Fatal) and logs messages to a file with timestamps.
 
 ## Features
 
-- **Multiple Log Levels**: Debug, Info, Warning, Error, and Fatal.
-- **File Logging**: Logs are written to a specified file with a unique ID and timestamp.
+- **Multiple Log Levels**: Info, Warning, Error, and Fatal.
+- **File Logging**: Logs are written to a specified file with timestamps.
 
 ## Installation
 
@@ -17,17 +17,16 @@ This Go file implements a logging library called `loglite` with the following ke
 
 ### Types and Constants
 
-- **`loger` struct**: Handles the logger's state, including log level, file path, file handler, and internal counters.
-- **`log` struct**: Represents a log entry with a unique ID, log level, message, and timestamp.
-- **Log Levels**: Constants `Debug`, `Info`, `Warning`, and `Error` control log severity.
+- **`Logger` struct**: Handles the logger's state, including log level, file path, file handler, and internal counters.
+- **`Log` struct**: Represents a log entry with a unique ID, log level, message, and timestamp.
+- **Log Levels**: Constants `Info`, `Warning`, `Error`, and `Fatal` control log severity.
 
 ### Methods
 
-- **`NewLogger(lvl int, filePath string) *loger`**: Initializes a new logger, sets the log level, and opens/creates a log file.
+- **`NewLogger(level int, filePath string) *Logger`**: Initializes a new logger, sets the log level, and opens/creates a log file.
 
 #### Logging Methods
 
-- **`Debug(msg string, args ...any)`**: Logs debug messages.
 - **`Info(msg string, args ...any)`**: Logs informational messages.
 - **`Warning(msg string, args ...any)`**: Logs warning messages.
 - **`Error(msg string, args ...any)`**: Logs error messages.
@@ -35,8 +34,8 @@ This Go file implements a logging library called `loglite` with the following ke
 
 ### Internal Functions
 
-- **`newLog(lvl, msg string, args ...any) log`**: Creates a new log entry with a unique ID, log level, and formatted message.
-- **`save(lg log) string`**: Writes the log entry to the file.
+- **`newLog(level, msg string, args ...any) Log`**: Creates a new log entry with a unique ID, log level, and formatted message.
+- **`save(lg Log) string`**: Writes the log entry to the file.
 
 ## Usage
 
@@ -51,7 +50,7 @@ import "path/to/loglite"
 Initialize the logger by specifying the log level and the file path where the logs will be saved:
 
 ```go
-logger := loglite.NewLogger(loglite.Debug, "app.log")
+logger := loglite.NewLogger(loglite.Info, "app.log")
 ```
 
 ### Logging Messages
@@ -59,7 +58,6 @@ logger := loglite.NewLogger(loglite.Debug, "app.log")
 Use the provided methods to log messages at different levels:
 
 ```go
-logger.Debug("This is a debug message")
 logger.Info("This is an info message")
 logger.Warning("This is a warning message")
 logger.Error("This is an error message")
@@ -76,15 +74,14 @@ package main
 import "github.com/TrueIronEnjoyer/loglite"
 
 func main() {
-	// Initialize the logger
-	logger := loglite.NewLogger(loglite.Debug, "app.log")
+    // Initialize the logger
+    logger := loglite.NewLogger(loglite.Info, "app.log")
 
-	// Log messages at different levels
-	logger.Debug("Debug message with %d arguments", 1)
-	logger.Info("Info message with %d arguments", 1)
-	logger.Warning("Warning message with %d arguments", 1)
-	logger.Error("Error message with %d arguments", 1)
-	logger.Fatal("Fatal message with %d arguments", 1)
+    // Log messages at different levels
+    logger.Info("Info message with %d arguments", 1)
+    logger.Warning("Warning message with %d arguments", 1)
+    logger.Error("Error message with %d arguments", 1)
+    logger.Fatal("Fatal message with %d arguments", 1)
 }
 ```
 
