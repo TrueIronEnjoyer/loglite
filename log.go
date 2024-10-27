@@ -1,145 +1,70 @@
 package loglite
 
 import (
-	"fmt"
-	"os"
-	"time"
+    "fmt"
+    "os"
+    "time"
 )
 
-// loger struct: Handles the logger's state, including log level, file path, file handler, and internal counters.
-type loger struct {
-	Lvl       int
-	FilePath  string
-	file      *os.File
-	lastId    int
-	waitCount int
-	listen    bool
-}
+// LogLevel defines the available logging levels.
+type LogLevel int
 
-// Log Levels: Constants Debug, Info, Warning, and Error control log severity.
 const (
-	Debug   = -4
-	Info    = 0
-	Warning = 4
-	Error   = 8
+    INFO LogLevel = iota
+    WARN
+    ERROR
 )
 
-// log struct: Represents a log entry with a unique ID, log level, message, and timestamp.
-type log struct {
-	id    int
-	lvl   string
-	msg   string
-	ptime time.Time
+// Logger represents a simple logger.
+type Logger struct {
+    level  LogLevel
+    output *os.File
 }
 
-// NewLogger(lvl int, filePath string) *loger: Initializes a new logger, sets the log level, and opens/creates a log file.
-func NewLogger(lvl int, filePath string) *loger {
-	l := &loger{
-		Lvl:      lvl,
-		FilePath: filePath,
-		listen:   true,
-	}
-
-	var err error
-	l.file, err = os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		panic("The Loger couldn't open/create the .log file, err: " + err.Error())
-	}
-
-	return l
+// NewLogger creates a new Logger instance.
+func NewLogger(level LogLevel, outputPath string) (*Logger, error) {
+    var output *os.File
+    var err error
+    if outputPath != "" {
+        output, err = os.OpenFile(outputPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+        if err != nil {
+            return nil, err
+        }
+    } else {
+        output = os.Stdout
+    }
+    return &Logger{level: level, output: output}, nil
 }
 
-// Debug(msg string, args ...any): Logs debug messages.
-func (l *loger) Debug(msg string, args ...any) {
-	if l.Lvl > Debug || !l.listen {
-		return
-	}
-
-	l.waitCount++
-
-	lg := l.newLog("debug", msg, args...)
-	go l.save(lg)
+// logMessage logs a message with the given level.
+func (l *Logger) logMessage(level LogLevel, msg string) {
+    if level < l.level {
+        return
+    }
+    timestamp := time.Now().Format("2006-01-02 15:04:05")
+    levelStr := [...]string{"INFO", "WARN", "ERROR"}[level]
+    logMsg := fmt.Sprintf("[%s] [%s] %s\n", timestamp, levelStr, msg)
+    l.output.WriteString(logMsg)
 }
 
-// Info(msg string, args ...any): Logs informational messages.
-func (l *loger) Info(msg string, args ...any) {
-	if l.Lvl > Info || !l.listen {
-		return
-	}
-
-	l.waitCount++
-
-	lg := l.newLog("info", msg, args...)
-	go l.save(lg)
+// Info logs an informational message.
+func (l *Logger) Info(msg string) {
+    l.logMessage(INFO, msg)
 }
 
-// Warning(msg string, args ...any): Logs warning messages.
-func (l *loger) Warning(msg string, args ...any) {
-	if l.Lvl > Warning || !l.listen {
-		return
-	}
-
-	l.waitCount++
-
-	lg := l.newLog("warning", msg, args...)
-	go l.save(lg)
+// Warn logs a warning message.
+func (l *Logger) Warn(msg string) {
+    l.logMessage(WARN, msg)
 }
 
-// Error(msg string, args ...any): Logs error messages.
-func (l *loger) Error(msg string, args ...any) {
-	if l.Lvl > Error || !l.listen {
-		return
-	}
-
-	l.waitCount++
-
-	lg := l.newLog("error", msg, args...)
-	go l.save(lg)
+// Error logs an error message.
+func (l *Logger) Error(msg string) {
+    l.logMessage(ERROR, msg)
 }
 
-// Fatal(msg string, args ...any): Logs a fatal error and stops the logger.
-func (l *loger) Fatal(msg string, args ...any) {
-	lg := l.newLog("fatal", msg, args...)
-
-	l.listen = false
-
-	for {
-		if l.waitCount == 0 {
-			break
-		}
-		time.Sleep(1000 * time.Millisecond)
-	}
-
-	panic(l.save(lg))
-
-}
-
-// newLog(lvl, msg string, args ...any) log: Creates a new log entry with a unique ID, log level, and formatted message.
-func (l *loger) newLog(lvl, msg string, args ...any) log {
-	lg := log{
-		id:    l.lastId,
-		lvl:   lvl,
-		msg:   fmt.Sprintf(msg, args...),
-		ptime: time.Now(),
-	}
-
-	l.lastId++
-
-	return lg
-}
-
-// save(lg log) string: Writes the log entry to the file.
-func (l *loger) save(lg log) string {
-
-	lgText := fmt.Sprintln("{", lg.id, ",\n", lg.lvl, ",\n", lg.msg, "\n", lg.ptime.Format("2001-01-01 01:01:01.001"), "}")
-
-	_, err := l.file.WriteString(lgText)
-
-	if err != nil {
-		println("The Loger couldn't insert the data of the log to the log's file, err: ", err.Error())
-	}
-
-	l.waitCount--
-
-	return lgText
+// Close closes the logger's output file if it was opened.
+func (l *Logger) Close() {
+    if l.output != os.Stdout {
+        l.output.Close()
+    }
 }
